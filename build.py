@@ -5,8 +5,7 @@ Balatro Portrait Mobile - Unified Build Script
 Handles everything: resource extraction, Game.love creation, and APK packaging.
 Runs on Windows, macOS, Linux, and Termux on Android. On Termux, use
 `bash termux-build.sh` for a PC-free build from the installed Play Store app;
-an ARM aapt2 is downloaded automatically, or a native apktool already in PATH
-is used as-is.
+REAndroid/APKEditor is downloaded automatically to compile and pack resources.
 
 Usage:
     python build.py [options]
@@ -79,17 +78,12 @@ JAVA_BIN = "java"  # resolved in _setup_jdk()
 
 IS_TERMUX = bool(os.environ.get("TERMUX_VERSION")) or os.path.isdir("/data/data/com.termux/files/usr")
 
-APKTOOL_URL    = "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar"
+APKEDITOR_URL  = "https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar"
 SIGNER_URL     = "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
 PATCH_URL      = "https://github.com/blake502/balatro-apk-maker/releases/download/Additional-Tools-1.0/Balatro-APK-Patch.zip"
 # The LMM base APK is rebuilt upstream without version-pinned URLs, so it cannot
 # be hash-pinned here. All version-pinned downloads above are SHA-256 verified.
 LOVELY_APK_URL = "https://lmm.shorty.systems/base.apk"
-
-# ReVanced's prebuilt native aapt2 binaries. The apktool jar only ships an
-# x86-64 aapt2, which cannot run on ARM Android, so when building on Termux we
-# point apktool at one of these via --use-aapt2. https://github.com/ReVanced/aapt2
-REVANCED_AAPT2_BASE = "https://github.com/ReVanced/aapt2/releases/download/v1.1.0/"
 
 # iOS (experimental): prebuilt unsigned LOVE iOS app shell from balatro-apk-maker.
 # Game.love is inserted into the .app, Info.plist is locked to portrait, and the
@@ -98,10 +92,10 @@ REVANCED_AAPT2_BASE = "https://github.com/ReVanced/aapt2/releases/download/v1.1.
 IOS_BASE_URL = "https://github.com/blake502/balatro-apk-maker/releases/download/Additional-Tools-1.0/balatro-base.ipa"
 
 TOOL_SHA256 = {
-    APKTOOL_URL:  "7956eb04194300ce0d0a84ad18771eebc94b89fb8d1ddcce8ea4c056818646f4",
-    SIGNER_URL:   "e1299fd6fcf4da527dd53735b56127e8ea922a321128123b9c32d619bba1d835",
-    PATCH_URL:    "efa47e113b15b2963a193ff6b988544f58e0dab26a75b439943d55dba0f5b489",
-    IOS_BASE_URL: "1b7a060dc06f7d3ea54fd24f04ff9fcedde7a0e3539c96bfee175499b723f661",
+    APKEDITOR_URL: "a9cd40df818845456be6d696de6110c89edf4b0a0580cb83438ed6b25a366e67",
+    SIGNER_URL:    "e1299fd6fcf4da527dd53735b56127e8ea922a321128123b9c32d619bba1d835",
+    PATCH_URL:     "efa47e113b15b2963a193ff6b988544f58e0dab26a75b439943d55dba0f5b489",
+    IOS_BASE_URL:  "1b7a060dc06f7d3ea54fd24f04ff9fcedde7a0e3539c96bfee175499b723f661",
 }
 
 # These strings must match exactly what's in src/game.lua
@@ -725,21 +719,6 @@ def _java(jar, args):
         sys.exit(1)
 
 
-def _setup_termux_aapt2():
-    """Download ReVanced's native ARM aapt2 and return its path. The apktool jar
-    only ships an x86-64 aapt2, which can't run on Android, so on Termux we hand
-    apktool a native aapt2 via --use-aapt2 -a. Only the build (`b`) step needs it."""
-    machine = platform.machine().lower()
-    asset = "aapt2-arm64-v8a" if machine in ("aarch64", "arm64") else "aapt2-armeabi-v7a"
-    dest = os.path.join(WORKDIR, asset)
-    _download(REVANCED_AAPT2_BASE + asset, dest)
-    try:
-        os.chmod(dest, 0o755)
-    except OSError:
-        pass
-    return dest
-
-
 def _sign_apk(signer):
     """Sign the APK using uber-apk-signer. Checks for custom keystore or env variables."""
     ks_path = os.environ.get("KEYSTORE_PATH") or os.environ.get("KEYSTORE_FILE") or os.environ.get("KEYSTORE")
@@ -772,39 +751,10 @@ def _sign_apk(signer):
     _java(signer, args)
 
 
-def _apktool(jar, args):
-    """Run apktool. The apktool jar's bundled aapt binaries are x86-64 only, so
-    on Termux/Android one of two known-good setups is used:
-
-      A) a Termux-native apktool already in PATH (e.g. rendiix/termux-apktool),
-         which ships its own ARM aapt — run as-is, no --use-aapt2 needed;
-      B) otherwise the bundled ibotpeaches apktool jar driven by Termux's native
-         Java, with ReVanced's ARM aapt2 (downloaded automatically) passed via
-         --use-aapt2 -a. This needs no manual apktool install at all.
+def _apkeditor(jar, args):
+    """Run REAndroid/APKEditor. APKEditor compiles resources using a pure Java
+    toolchain, which avoids the platform-specific aapt/aapt2 issues of apktool.
     """
-    if IS_TERMUX:
-        tool = shutil.which("apktool")
-        if tool:
-            # Setup A: native apktool brings its own ARM aapt; don't override it.
-            result = subprocess.run([tool] + list(args), cwd=WORKDIR,
-                                    capture_output=True, text=True)
-            if result.returncode != 0:
-                print("  ERROR: apktool failed.")
-                print(f"    command: {tool} {' '.join(args)}")
-                if result.stdout:
-                    print(f"  STDOUT:\n{result.stdout}")
-                if result.stderr:
-                    print(f"  STDERR:\n{result.stderr}")
-                sys.exit(1)
-            return
-
-        # Setup B: bundled apktool jar + downloaded ARM aapt2 (build step only).
-        termux_args = list(args)
-        if termux_args and termux_args[0] == "b":
-            aapt2 = _setup_termux_aapt2()
-            termux_args = ["b", "--use-aapt2", "-a", aapt2] + termux_args[1:]
-        _java(jar, termux_args)
-        return
     _java(jar, args)
 
 
@@ -861,7 +811,7 @@ def build_apk(profiler=None):
     apk_fn  = "lovely-base.apk"
     apk_url = LOVELY_APK_URL
 
-    apktool   = os.path.join(WORKDIR, "apktool.jar")
+    apkeditor = os.path.join(WORKDIR, "APKEditor.jar")
     signer    = os.path.join(WORKDIR, "uber-apk-signer.jar")
     patch_zip = os.path.join(WORKDIR, "Balatro-APK-Patch.zip")
     base_apk  = os.path.join(WORKDIR, apk_fn)
@@ -870,10 +820,10 @@ def build_apk(profiler=None):
         _setup_jdk()
 
     with p.step("Download tools"):
-        # apktool.jar is always fetched: on Termux it's the "setup B" fallback
-        # (bundled jar + ReVanced aapt2) when no native apktool is in PATH, and
-        # it's harmless if an in-PATH apktool ends up being used instead.
-        downloads = [(APKTOOL_URL, apktool), (SIGNER_URL, signer),
+        # APKEditor.jar is always fetched. Because it contains its own pure-Java
+        # resource compilers, it runs out of the box with zero native-binary
+        # dependency hassles on both desktop and mobile platforms like Termux.
+        downloads = [(APKEDITOR_URL, apkeditor), (SIGNER_URL, signer),
                      (PATCH_URL, patch_zip), (apk_url, base_apk)]
         for url, dest in downloads:
             _download(url, dest)
@@ -883,7 +833,7 @@ def build_apk(profiler=None):
         if os.path.exists(apk_out):
             shutil.rmtree(apk_out)
         print("  Unpacking APK ...")
-        _apktool(apktool, ["d", "-o", "balatro-apk", apk_fn])
+        _apkeditor(apkeditor, ["d", "-t", "xml", "-f", "-i", apk_fn, "-o", "balatro-apk"])
 
     with p.step("Patch manifest"):
         patch_dir = os.path.join(WORKDIR, "Balatro-APK-Patch")
@@ -929,7 +879,7 @@ def build_apk(profiler=None):
 
     with p.step("Repack APK"):
         print("  Repacking APK ...")
-        _apktool(apktool, ["b", "-o", "balatro.apk", "balatro-apk"])
+        _apkeditor(apkeditor, ["b", "-f", "-i", "balatro-apk", "-o", "balatro.apk"])
 
     with p.step("Sign APK"):
         print("  Signing APK ...")
