@@ -34,6 +34,7 @@ A portrait-mode mod for Balatro on Android, built for one-handed play.
   <td><img src="https://github.com/user-attachments/assets/23f5d4e5-dd41-4594-a82e-27a9e343a50f" width="280"/></td>
 </tr>
 </table>
+
 ## Changes
 - **Reduced External Dependencies:** No need of `aapt2` and `apktool` and is replaced with `APKEditor`. Automatic `java` downloads are removed, thus running on any OS that supports `java` and `python`
 - **Custom Keystore** support
