@@ -755,14 +755,14 @@ def _sign_apk(signer):
         ks_key_pass = os.environ.get("KEYSTORE_KEY_PASSWORD") or ks_pass
         args.extend(["--ksKeyPass", ks_key_pass])
         _java(signer, args)
-        shutil.move(os.path.join(WORKDIR,"balatro-aligned-signed.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk"))
+        shutil.move(os.path.join(WORKDIR,"balatro-aligned-signed.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk")))
     else:
         if ks_path or ks_pass or ks_alias:
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
         _java(signer, ["-a", "balatro.apk"])
-        shutil.move(os.path.join(WORKDIR,"balatro-aligned-debugSigned.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk"))
+        shutil.move(os.path.join(WORKDIR,"balatro-aligned-debugSigned.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk")))
 
 
 def _apkeditor(jar, args):
