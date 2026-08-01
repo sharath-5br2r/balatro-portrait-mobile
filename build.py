@@ -751,20 +751,18 @@ def _sign_apk(signer):
             "--ks", rel_ks,
             "--ksPass", ks_pass,
             "--ksAlias", ks_alias,
-            "-o", "balatro-portrait-mobile.apk"
         ]
         ks_key_pass = os.environ.get("KEYSTORE_KEY_PASSWORD") or ks_pass
         args.extend(["--ksKeyPass", ks_key_pass])
-
         _java(signer, args)
-        return "balatro-portrait-android.apk"
+        shutil.move(os.path.join(WORKDIR,"balatro-aligned-signed.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk"))
     else:
         if ks_path or ks_pass or ks_alias:
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
-        _java(signer, ["-a", "balatro.apk", "-o", "balatro-portrait-mobile.apk" ])
-        return "balatro-portrait-android.apk"
+        _java(signer, ["-a", "balatro.apk"])
+        shutil.move(os.path.join(WORKDIR,"balatro-aligned-debugSigned.apk"), shutil.move(os.path.join(WORKDIR,"balatro-portrait-mobile.apk"))
 
 
 def _apkeditor(jar, args):
@@ -908,12 +906,12 @@ def build_apk(profiler=None):
 
     with p.step("Sign APK"):
         print("  Signing APK ...")
-        signed_apk = _sign_apk(signer)
+        _sign_apk(signer)
 
     p.report()
     print(f"\n{'=' * 60}")
     print("  Build complete - MODDED (Lovely)")
-    print(f"  APK: balatro-mobile-maker/{signed_apk}")
+    print(f"  APK: balatro-mobile-maker/balatro-portrait-mobile.apk")
     print(f"{'=' * 60}")
 
     print()
@@ -922,8 +920,6 @@ def build_apk(profiler=None):
     print("  2. Put mod folders in game/Mods/")
     print("  3. Restart the game")
     print("  See docs/MODDING.md for no-root, root, and ADB paths.")
-
-    return signed_apk
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1184,7 +1180,7 @@ def main():
     else:
         print()
         print(f"[3/{total}] Building APK ...")
-        signed_apk = build_apk(profiler=BuildProfiler())
+        build_apk(profiler=BuildProfiler())
     # ── Step 4 — iOS IPA (experimental) ────────────────────────────────────
     if build_ios:
         print()
