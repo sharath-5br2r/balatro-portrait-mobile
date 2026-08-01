@@ -228,6 +228,15 @@ answer **yes** to "Disable the CRT shader?" in the interactive build.
 game, tap **Copy to clipboard**, and paste the report into your issue — it
 carries the exact screen and safe-area numbers of your device.
 
+**Android says the APK is unsafe or unknown** 
+Enable **Install unknown apps** for your file manager. This is normal for a
+locally built APK.
+
+**App already installed / signature conflict** 
+Uninstall the old `com.unofficial.balatro` build, then install the new APK.
+Your official Play Store Balatro is a different package and does not need to be
+removed.
+
 Path-specific problems are covered in their own guides:
 [Zygisk](zygisk/README.md) · [iOS](docs/IOS.md) ·
 [Modding](docs/MODDING.md) · [Save transfer](docs/SAVE_TRANSFER.md)
@@ -247,11 +256,12 @@ If this made mobile Balatro better for you, you can buy me a coffee.
 - **LocalThunk** for the original Balatro
 - **LÖVE** for the 2D game framework
 - **KtourzaJeremy** for pull requests
+- **REAndroid** for dependency free APKEditor.
 - **[ethangreen-dev](https://github.com/ethangreen-dev)** for the Lovely injector
 - **[WilsontheWolf](https://github.com/WilsontheWolf)** for Lovely Mobile Maker
 - **[bladeSk](https://github.com/bladeSk)** for the Readabletro mod
 - **[blake502](https://github.com/blake502)** for the Balatro APK Maker
-
+- **[ShaggyLorean](https://github.com/ShaggyLorean/balatro-portrait-mobile)** for the base project
 ## Disclaimer
 
 This is an unofficial mod. You must own a legal copy of Balatro to use it.
