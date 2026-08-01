@@ -759,7 +759,7 @@ def _apkeditor(jar, args):
 
 
 def _patch_sdl_portrait_orientation(apk_out):
-    smali_path = os.path.join(apk_out, "smali, "classes", "org", "libsdl", "app", "SDLActivity.smali")
+    smali_path = os.path.join(apk_out, "smali", "classes", "org", "libsdl", "app", "SDLActivity.smali")
     if not os.path.exists(smali_path):
         raise FileNotFoundError(f"SDLActivity.smali not found at {smali_path}")
 
