@@ -763,7 +763,7 @@ def _sign_apk(signer):
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
-        _java(signer, ["-a", "balatro.apk" "-o", "balatro-portrait-mobile.apk" ])
+        _java(signer, ["-a", "balatro.apk", "-o", "balatro-portrait-mobile.apk" ])
         return "balatro-portrait-android.apk"
 
 
