@@ -723,7 +723,7 @@ def _sign_apk(signer):
     """Sign the APK using uber-apk-signer. Checks for custom keystore or env variables."""
     ks_path = os.environ.get("KEYSTORE_PATH") or os.environ.get("KEYSTORE_FILE") or os.environ.get("KEYSTORE")
     if not ks_path:
-        for candidate in ("custom.keystore", "release.keystore", "balatro.keystore"):
+        for candidate in ("ks.keystore"):
             if os.path.exists(candidate):
                 ks_path = os.path.abspath(candidate)
                 break
@@ -759,7 +759,7 @@ def _apkeditor(jar, args):
 
 
 def _patch_sdl_portrait_orientation(apk_out):
-    smali_path = os.path.join(apk_out, "smali", "org", "libsdl", "app", "SDLActivity.smali")
+    smali_path = os.path.join(apk_out, "smali, "classes", "org", "libsdl", "app", "SDLActivity.smali")
     if not os.path.exists(smali_path):
         raise FileNotFoundError(f"SDLActivity.smali not found at {smali_path}")
 
