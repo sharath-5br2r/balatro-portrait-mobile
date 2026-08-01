@@ -535,7 +535,7 @@ def _patch_lovely_mod_dir(apk_out):
     old, new = b"/save/ASET/Mods", b"/save/game/Mods"
     patched = 0
     for arch in ("arm64-v8a", "armeabi-v7a"):
-        so = os.path.join(apk_out, "lib", arch, "liblove.so")
+        so = os.path.join(apk_out, "root", "lib", arch, "liblove.so")
         if not os.path.exists(so):
             continue
         with open(so, "rb") as f:
