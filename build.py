@@ -75,30 +75,9 @@ DEFAULT_BUILD_CONFIG = {
 }
 
 WORKDIR  = os.path.abspath("balatro-mobile-maker")
-JDK_DIR  = os.path.join(WORKDIR, "jdk")
-JAVA_BIN = os.path.join(JDK_DIR, "bin", "java")  # resolved after JDK extraction
+JAVA_BIN = "java"  # resolved in _setup_jdk()
 
-# Termux (building directly on an Android phone): the downloaded desktop JDK
-# and the aapt binaries bundled inside the apktool jar are x86-64 only and
-# cannot run on ARM64 Android. Use Termux-native Java and an ARM64-compatible
-# apktool/aapt2 instead. Some Termux setups do not ship apktool in the official
-# repos; the build script validates the tools and prints actionable errors.
-#   pkg install python openjdk-17
 IS_TERMUX = bool(os.environ.get("TERMUX_VERSION")) or os.path.isdir("/data/data/com.termux/files/usr")
-
-if os.name == "nt":
-    JDK_URL    = "https://aka.ms/download-jdk/microsoft-jdk-21.0.3-windows-x64.zip"
-    JDK_SHA256 = "d1c5a1c674bf472838c4d63c46c2e23a8efd399362e40abebd4eee4988bc2130"
-elif platform.system() == "Darwin":
-    if platform.machine() == "arm64":
-        JDK_URL    = "https://aka.ms/download-jdk/microsoft-jdk-21.0.3-macos-aarch64.tar.gz"
-        JDK_SHA256 = "489c96c8a4d3592811d1907346c05b75c12642729f83576982b9f62d0aafc672"
-    else:
-        JDK_URL    = "https://aka.ms/download-jdk/microsoft-jdk-21.0.3-macos-x64.tar.gz"
-        JDK_SHA256 = "cf7d2c967088ac71b29cf28ad791a071bbf2c1dab333dd73dc0e791cb974c1f6"
-else:
-    JDK_URL    = "https://aka.ms/download-jdk/microsoft-jdk-21.0.3-linux-x64.tar.gz"
-    JDK_SHA256 = "b535a58db80aeb5cc0d5e85ae6cb3f621d7f269ca1b36832f1aed3842cede4f4"
 
 APKTOOL_URL    = "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar"
 SIGNER_URL     = "https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar"
@@ -119,7 +98,6 @@ REVANCED_AAPT2_BASE = "https://github.com/ReVanced/aapt2/releases/download/v1.1.
 IOS_BASE_URL = "https://github.com/blake502/balatro-apk-maker/releases/download/Additional-Tools-1.0/balatro-base.ipa"
 
 TOOL_SHA256 = {
-    JDK_URL:      JDK_SHA256,
     APKTOOL_URL:  "7956eb04194300ce0d0a84ad18771eebc94b89fb8d1ddcce8ea4c056818646f4",
     SIGNER_URL:   "e1299fd6fcf4da527dd53735b56127e8ea922a321128123b9c32d619bba1d835",
     PATCH_URL:    "efa47e113b15b2963a193ff6b988544f58e0dab26a75b439943d55dba0f5b489",
@@ -730,89 +708,13 @@ def build_game_love(apply_crt=False, apply_readabletro=False, force=False, impor
 
 def _setup_jdk():
     global JAVA_BIN
-    if IS_TERMUX:
-        java = shutil.which("java")
-        if not java:
-            print("  Java not found - installing Termux native OpenJDK 17 ...")
-            _termux_install_packages(["openjdk-17"])
-            java = shutil.which("java")
-            if not java:
-                print("  ERROR: openjdk-17 installed, but 'java' is still not in PATH.")
-                sys.exit(1)
-        JAVA_BIN = java
-        print(f"  Java (Termux native): {JAVA_BIN}")
-        return
-
-    archive = os.path.join(WORKDIR, "openjdk.zip" if os.name == "nt" else "openjdk.tar.gz")
-    _download(JDK_URL, archive)
-
-    if not os.path.exists(JDK_DIR):
-        print("  Extracting JDK ...")
-        for item in os.listdir(WORKDIR):
-            p = os.path.join(WORKDIR, item)
-            if item.startswith("jdk-") and os.path.isdir(p):
-                shutil.rmtree(p)
-        if os.name == "nt":
-            with zipfile.ZipFile(archive) as z:
-                z.extractall(WORKDIR)
-        else:
-            with tarfile.open(archive, "r:gz") as t:
-                if hasattr(tarfile, "data_filter"):
-                    t.extractall(WORKDIR, filter="data")
-                else:
-                    t.extractall(WORKDIR)
-        for item in os.listdir(WORKDIR):
-            if item.startswith("jdk-"):
-                shutil.move(os.path.join(WORKDIR, item), JDK_DIR)
-                break
-
-    java_exe = "java.exe" if os.name == "nt" else "java"
-    for root, _, files in os.walk(JDK_DIR):
-        if java_exe in files and "bin" in root:
-            JAVA_BIN = os.path.join(root, java_exe)
-            if os.name != "nt":
-                os.chmod(JAVA_BIN, 0o755)
-            break
+    java = shutil.which("java")
+    if not java:
+        print("  ERROR: Java not found in PATH.")
+        print("  Please install Java (JDK 17 or newer) and ensure 'java' is added to system PATH.")
+        sys.exit(1)
+    JAVA_BIN = java
     print(f"  Java: {JAVA_BIN}")
-
-
-def _termux_install_packages(packages):
-    pkg = shutil.which("pkg")
-    if not pkg:
-        print("  ERROR: Termux package manager 'pkg' was not found.")
-        print("  Install these packages manually, then rerun build.py:")
-        print(f"    pkg install {' '.join(packages)}")
-        sys.exit(1)
-    print(f"  Installing Termux packages: {' '.join(packages)}")
-    result = subprocess.run([pkg, "install", "-y"] + packages)
-    if result.returncode != 0:
-        print("  ERROR: Termux package install failed.")
-        print(f"    command: {pkg} install -y {' '.join(packages)}")
-        sys.exit(1)
-
-
-def _ensure_termux_command(command, package):
-    tool = shutil.which(command)
-    if tool:
-        return tool
-    _termux_install_packages([package])
-    tool = shutil.which(command)
-    if not tool:
-        print(f"  ERROR: '{command}' was not found after installing '{package}'.")
-        sys.exit(1)
-    return tool
-
-
-def _run_checked(command, cwd, label):
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"  ERROR: {label} failed.")
-        print(f"    command: {' '.join(command)}")
-        if result.stdout:
-            print(f"  STDOUT:\n{result.stdout}")
-        if result.stderr:
-            print(f"  STDERR:\n{result.stderr}")
-        sys.exit(1)
 
 
 def _java(jar, args):
@@ -838,68 +740,36 @@ def _setup_termux_aapt2():
     return dest
 
 
-def _ensure_debug_keystore():
-    keystore = os.path.join(WORKDIR, "debug.keystore")
-    if os.path.exists(keystore):
-        return keystore
-    keytool = shutil.which("keytool")
-    if not keytool:
-        print("  ERROR: keytool not found after Java setup.")
-        sys.exit(1)
-    _run_checked([
-        keytool,
-        "-genkeypair",
-        "-keystore", "debug.keystore",
-        "-storepass", "android",
-        "-keypass", "android",
-        "-alias", "androiddebugkey",
-        "-keyalg", "RSA",
-        "-keysize", "2048",
-        "-validity", "10000",
-        "-dname", "CN=Android Debug,O=Android,C=US",
-        "-noprompt",
-    ], WORKDIR, "debug keystore creation")
-    return keystore
-
-
 def _sign_apk(signer):
-    if not IS_TERMUX:
-        _java(signer, ["-a", "balatro.apk"])
-        return
+    """Sign the APK using uber-apk-signer. Checks for custom keystore or env variables."""
+    ks_path = os.environ.get("KEYSTORE_PATH") or os.environ.get("KEYSTORE_FILE") or os.environ.get("KEYSTORE")
+    if not ks_path:
+        for candidate in ("custom.keystore", "release.keystore", "balatro.keystore"):
+            if os.path.exists(candidate):
+                ks_path = os.path.abspath(candidate)
+                break
 
-    apksigner = _ensure_termux_command("apksigner", "apksigner")
-    _ensure_debug_keystore()
+    ks_pass = os.environ.get("KEYSTORE_PASSWORD")
+    ks_alias = os.environ.get("KEYSTORE_ALIAS")
 
-    aligned = os.path.join(WORKDIR, "balatro-aligned.apk")
-    signed = os.path.join(WORKDIR, "balatro-aligned-debugSigned.apk")
-    for path in (aligned, signed):
-        if os.path.exists(path):
-            os.remove(path)
+    args = ["-a", "balatro.apk"]
 
-    sign_input = "balatro.apk"
-    zipalign = shutil.which("zipalign")
-    if zipalign:
-        _run_checked([
-            zipalign,
-            "-p",
-            "-f",
-            "4",
-            "balatro.apk",
-            "balatro-aligned.apk",
-        ], WORKDIR, "zipalign")
-        sign_input = "balatro-aligned.apk"
+    if ks_path and os.path.exists(ks_path) and ks_pass and ks_alias:
+        print(f"  Signing with custom keystore: {ks_path} (alias: {ks_alias})")
+        args.extend([
+            "--ks", ks_path,
+            "--ksPass", ks_pass,
+            "--ksAlias", ks_alias,
+        ])
+        ks_key_pass = os.environ.get("KEYSTORE_KEY_PASSWORD") or ks_pass
+        args.extend(["--ksKeyPass", ks_key_pass])
     else:
-        print("  zipalign not found in Termux - signing APK without zipalign.")
+        if ks_path or ks_pass or ks_alias:
+            print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
+            print("  Falling back to debug certificate.")
+        print("  Signing with debug certificate (uber-apk-signer) ...")
 
-    _run_checked([
-        apksigner,
-        "sign",
-        "--ks", "debug.keystore",
-        "--ks-pass", "pass:android",
-        "--key-pass", "pass:android",
-        "--out", "balatro-aligned-debugSigned.apk",
-        sign_input,
-    ], WORKDIR, "apksigner")
+    _java(signer, args)
 
 
 def _apktool(jar, args):
@@ -1068,7 +938,7 @@ def build_apk(profiler=None):
     p.report()
     print(f"\n{'=' * 60}")
     print("  Build complete - MODDED (Lovely)")
-    print(f"  APK: balatro-mobile-maker/balatro-aligned-debugSigned.apk")
+    print(f"  APK output directory: balatro-mobile-maker/")
     print(f"{'=' * 60}")
 
     print()
