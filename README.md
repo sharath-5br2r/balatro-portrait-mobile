@@ -110,7 +110,7 @@ You need to install `openjdk`(17+) and `python`(3.6+). Optionally `git` can be u
 
 ```sh
 rm -rf balatro-portrait-mobile
-git clone https://github.com/ShaggyLorean/balatro-portrait-mobile.git
+git clone https://github.com/sharath-5br2r/balatro-portrait-mobile.git
 cd balatro-portrait-mobile
 python build.py
 ```
