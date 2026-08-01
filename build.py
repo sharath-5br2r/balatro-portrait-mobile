@@ -1186,9 +1186,9 @@ def main():
         signed_apk = build_apk(profiler=BuildProfiler())
 
         print()
-        print("  Install on device:")
+        print(f"  File at {signed_apk}, install on device:")
         print(f"    adb install balatro-mobile-maker/{signed_apk}")
-
+        print(f" or termux-open balatro-mobile-maker/{signed_apk}")
     # ── Step 4 — iOS IPA (experimental) ────────────────────────────────────
     if build_ios:
         print()
