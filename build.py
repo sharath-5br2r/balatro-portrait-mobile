@@ -535,21 +535,23 @@ def _patch_lovely_mod_dir(apk_out):
     old, new = b"/save/ASET/Mods", b"/save/game/Mods"
     patched = 0
     for arch in ("arm64-v8a", "armeabi-v7a"):
-        so = os.path.join(apk_out, "root", "lib", arch, "liblove.so")
-        if not os.path.exists(so):
-            continue
-        with open(so, "rb") as f:
-            data = f.read()
-        if new in data:
+        for subpath in ("root", ""):
+            so = os.path.join(apk_out, subpath, "lib", arch, "liblove.so")
+            if not os.path.exists(so):
+                continue
+            with open(so, "rb") as f:
+                data = f.read()
+            if new in data:
+                patched += 1
+                break
+            count = data.count(old)
+            if count != 1:
+                print(f"  Warning: skipped mod-dir patch for {arch} (found {count} matches).")
+                continue
+            with open(so, "wb") as f:
+                f.write(data.replace(old, new))
             patched += 1
-            continue
-        count = data.count(old)
-        if count != 1:
-            print(f"  Warning: skipped mod-dir patch for {arch} (found {count} matches).")
-            continue
-        with open(so, "wb") as f:
-            f.write(data.replace(old, new))
-        patched += 1
+            break
     if not patched:
         raise RuntimeError("could not repoint Lovely mod directory (liblove.so unpatched)")
 
@@ -720,35 +722,48 @@ def _java(jar, args):
 
 
 def _sign_apk(signer):
-    """Sign the APK using uber-apk-signer. Checks for custom keystore or env variables."""
+    """Sign the APK using uber-apk-signer. Automatically copies custom keystore into WORKDIR if needed."""
     ks_path = os.environ.get("KEYSTORE_PATH") or os.environ.get("KEYSTORE_FILE") or os.environ.get("KEYSTORE")
     if not ks_path:
-        for candidate in ("ks.keystore", "balatro.keystore", "release.keystore"):
+        candidates = ("custom.keystore", "ks.keystore", "balatro.keystore", "release.keystore")
+        for candidate in candidates:
             if os.path.exists(candidate):
                 ks_path = os.path.abspath(candidate)
+                break
+            elif os.path.exists(os.path.join(WORKDIR, candidate)):
+                ks_path = os.path.abspath(os.path.join(WORKDIR, candidate))
                 break
 
     ks_pass = os.environ.get("KEYSTORE_PASSWORD")
     ks_alias = os.environ.get("KEYSTORE_ALIAS")
 
-    args = ["-a", "balatro.apk"]
-
     if ks_path and os.path.exists(ks_path) and ks_pass and ks_alias:
-        print(f"  Signing with custom keystore: {ks_path} (alias: {ks_alias})")
-        args.extend([
-            "--ks", ks_path,
+        target_ks_in_workdir = os.path.join(WORKDIR, os.path.basename(ks_path))
+        if os.path.abspath(ks_path) != os.path.abspath(target_ks_in_workdir):
+            print(f"  Copying custom keystore to build directory: {os.path.basename(ks_path)}")
+            shutil.copy2(ks_path, target_ks_in_workdir)
+
+        rel_ks = os.path.basename(ks_path)
+        print(f"  Signing with custom keystore: {rel_ks} (alias: {ks_alias})")
+
+        args = [
+            "-a", "balatro.apk",
+            "--ks", rel_ks,
             "--ksPass", ks_pass,
             "--ksAlias", ks_alias,
-        ])
+        ]
         ks_key_pass = os.environ.get("KEYSTORE_KEY_PASSWORD") or ks_pass
         args.extend(["--ksKeyPass", ks_key_pass])
+
+        _java(signer, args)
+        return "balatro-aligned-signed.apk"
     else:
         if ks_path or ks_pass or ks_alias:
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
-
-    _java(signer, args)
+        _java(signer, ["-a", "balatro.apk"])
+        return "balatro-aligned-debugSigned.apk"
 
 
 def _apkeditor(jar, args):
@@ -759,9 +774,20 @@ def _apkeditor(jar, args):
 
 
 def _patch_sdl_portrait_orientation(apk_out):
-    smali_path = os.path.join(apk_out, "smali", "classes", "org", "libsdl", "app", "SDLActivity.smali")
-    if not os.path.exists(smali_path):
-        raise FileNotFoundError(f"SDLActivity.smali not found at {smali_path}")
+    smali_candidates = (
+        os.path.join(apk_out, "smali", "classes", "org", "libsdl", "app", "SDLActivity.smali"),
+        os.path.join(apk_out, "root", "smali", "classes", "org", "libsdl", "app", "SDLActivity.smali"),
+        os.path.join(apk_out, "smali", "org", "libsdl", "app", "SDLActivity.smali"),
+        os.path.join(apk_out, "root", "smali", "org", "libsdl", "app", "SDLActivity.smali"),
+    )
+    smali_path = None
+    for cand in smali_candidates:
+        if os.path.exists(cand):
+            smali_path = cand
+            break
+
+    if not smali_path:
+        raise FileNotFoundError(f"SDLActivity.smali not found in candidate paths under {apk_out}")
 
     with open(smali_path, "r", encoding="utf-8") as f:
         smali = f.read()
@@ -820,9 +846,6 @@ def build_apk(profiler=None):
         _setup_jdk()
 
     with p.step("Download tools"):
-        # APKEditor.jar is always fetched. Because it contains its own pure-Java
-        # resource compilers, it runs out of the box with zero native-binary
-        # dependency hassles on both desktop and mobile platforms like Termux.
         downloads = [(APKEDITOR_URL, apkeditor), (SIGNER_URL, signer),
                      (PATCH_URL, patch_zip), (apk_url, base_apk)]
         for url, dest in downloads:
@@ -867,13 +890,14 @@ def build_apk(profiler=None):
         # Icons
         for density in ["hdpi","mdpi","xhdpi","xxhdpi","xxxhdpi"]:
             src = os.path.join(WORKDIR, "res", f"drawable-{density}", "love.png")
-            dst = os.path.join(apk_out,  "res", f"drawable-{density}", "love.png")
-            if os.path.exists(src):
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy(src, dst)
+            for subpath in ("root", ""):
+                dst = os.path.join(apk_out, subpath, "res", f"drawable-{density}", "love.png")
+                if os.path.exists(src):
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy(src, dst)
 
         # Game.love
-        game_dst = os.path.join(apk_out, "assets", "game.love")
+        game_dst = os.path.join(apk_out, "root", "assets", "game.love") if os.path.exists(os.path.join(apk_out, "root")) else os.path.join(apk_out, "assets", "game.love")
         os.makedirs(os.path.dirname(game_dst), exist_ok=True)
         shutil.copy(game_love_src, game_dst)
 
@@ -883,12 +907,12 @@ def build_apk(profiler=None):
 
     with p.step("Sign APK"):
         print("  Signing APK ...")
-        _sign_apk(signer)
+        signed_apk = _sign_apk(signer)
 
     p.report()
     print(f"\n{'=' * 60}")
     print("  Build complete - MODDED (Lovely)")
-    print(f"  APK output directory: balatro-mobile-maker/")
+    print(f"  APK: balatro-mobile-maker/{signed_apk}")
     print(f"{'=' * 60}")
 
     print()
@@ -897,6 +921,8 @@ def build_apk(profiler=None):
     print("  2. Put mod folders in game/Mods/")
     print("  3. Restart the game")
     print("  See docs/MODDING.md for no-root, root, and ADB paths.")
+
+    return signed_apk
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1157,11 +1183,11 @@ def main():
     else:
         print()
         print(f"[3/{total}] Building APK ...")
-        build_apk(profiler=BuildProfiler())
+        signed_apk = build_apk(profiler=BuildProfiler())
 
         print()
         print("  Install on device:")
-        print("    adb install balatro-mobile-maker/balatro-aligned-debugSigned.apk")
+        print(f"    adb install balatro-mobile-maker/{signed_apk}")
 
     # ── Step 4 — iOS IPA (experimental) ────────────────────────────────────
     if build_ios:
