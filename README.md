@@ -8,7 +8,6 @@ A portrait-mode mod for Balatro on Android, built for one-handed play.
 **Jump to:**
 [Which build should I use?](#which-build-should-i-use) ·
 [Rootless APK](#rootless-apk-builder) ·
-[Termux](#phone-build-termux-no-pc) ·
 [Zygisk](#zygisk-module-experimental-root-only) ·
 [iOS](#ios-experimental-testers-wanted) ·
 [Mods](#mods) ·
@@ -35,6 +34,9 @@ A portrait-mode mod for Balatro on Android, built for one-handed play.
   <td><img src="https://github.com/user-attachments/assets/23f5d4e5-dd41-4594-a82e-27a9e343a50f" width="280"/></td>
 </tr>
 </table>
+## Changes
+- **Reduced External Dependencies:** No need of `aapt2` and `apktool` and is replaced with `APKEditor`. Automatic `java` downloads are removed, thus running on any OS that supports `java` and `python`
+- **Custom Keystore** support
 
 ## Features
 
@@ -47,7 +49,7 @@ A portrait-mode mod for Balatro on Android, built for one-handed play.
 - **Diagnostics screen** (Options -> Diagnostics) with a copyable device/layout
   report that drops straight into bug reports
 - **Mods** through [Lovely](https://github.com/ethangreen-dev/lovely-injector), with optional one-command Steamodded install
-- **Save transfer** from desktop Balatro or the official Play app, no root needed
+- **Save transfer** from desktop Balatro or the official Play app, no root needed(only in legit installs).
 - **Termux builds** with no PC, using the installed Play Store app as the source
 - **Zygisk module** (experimental, root only) for the official Google Play install
 - **iOS** (experimental) sideloadable `.ipa`
@@ -58,8 +60,7 @@ If you are not sure, use the rootless APK builder. It does not need root.
 
 | Path | Best for | Root | What you install |
 |------|----------|------|------------------|
-| **Rootless APK builder** | Most users | No | A separate `com.unofficial.balatro` portrait APK |
-| **Termux phone build** | No PC | No | The same APK, built on the phone |
+| **Rootless APK builder** also possible on Termux on device| Most users | No | A separate `com.unofficial.balatro` portrait APK |
 | **Zygisk module** | Rooted users keeping the official app | Yes | `balatro_portrait.zip` from Releases |
 | **iOS** | Testers | No jailbreak | Experimental `.ipa` |
 
@@ -67,14 +68,48 @@ Ready-made rootless APKs are not uploaded here because they contain your own
 Balatro files. The Zygisk ZIP only holds the portrait module, so it can live on
 the Releases page.
 
-Every path needs a legal copy of Balatro. PC builds also need Python 3.6+;
+Every path needs a copy of Balatro.;
 phone-only builds need Termux (F-Droid or GitHub build).
+
 
 ## Rootless APK builder
 
-Build a portrait APK on Windows, macOS, or Linux:
+Build a portrait APK on Windows, macOS, Termux,or Linux:
+
+### Phone build (Termux, no PC) Prerequisites
+
+If the official Play Store Balatro is installed, Termux can build the portrait
+APK straight from it. No PC copy of `Balatro.exe` or `Game.love` is needed.
+
+1. Install the official Play Store Balatro and launch it once.
+2. Install Termux from F-Droid or GitHub.
+3. In Termux run `termux-setup-storage`, tap **Allow**, then paste to install dependencies:
 
 ```sh
+pkg update -y && pkg install -y git python openjdk-21 
+```
+
+4. Then proceed below
+
+### PC Prerequisites
+You need to install `openjdk`(17+) and `python`(3.6+). Optionally `git` can be used for cloning.
+
+>[!Note]
+> For Advanced Users Only
+>
+> For a custom keystore, copy it to balatro-portrait-mobile after cloning as ks.keystore.
+>
+> Set the variables as KEYSTORE_PASSWORD, KEYSTORE_ALIAS and KEYSTORE_KEY_PASSWORD(if different).
+>
+>```sh
+>cp /path/to/keystore ks.keystore
+>export KEYSTORE_PASSWORD=password # use set in cmd.exe instead
+>export KEYSTORE_ALIAS=alias
+>```
+
+
+```sh
+rm -rf balatro-portrait-mobile
 git clone https://github.com/ShaggyLorean/balatro-portrait-mobile.git
 cd balatro-portrait-mobile
 python build.py
@@ -87,11 +122,15 @@ APK is written to:
 balatro-mobile-maker/balatro-aligned-debugSigned.apk
 ```
 
-Install it:
+when debug keystore is used or
 
-```sh
-adb install balatro-mobile-maker/balatro-aligned-debugSigned.apk
+```text
+balatro-mobile-maker/balatro-aligned-signed.apk
 ```
+
+when custom keystore is used.
+
+Install it using `adb install /path/to/balatro.apk` or `termux-open /path/to/balatro.apk`(Requires Termux API) or copying manually.
 
 Common options:
 
@@ -101,24 +140,6 @@ python build.py --steamodded                       # bundle Steamodded (newest)
 python build.py --import-save "%APPDATA%\Balatro"   # bring your save across
 python build.py --balatro "D:\Steam\steamapps\common\Balatro\Balatro.exe" --force
 ```
-
-## Phone build (Termux, no PC)
-
-If the official Play Store Balatro is installed, Termux can build the portrait
-APK straight from it. No PC copy of `Balatro.exe` or `Game.love` is needed.
-
-1. Install the official Play Store Balatro and launch it once.
-2. Install Termux from F-Droid or GitHub.
-3. In Termux run `termux-setup-storage`, tap **Allow**, then paste:
-
-```sh
-pkg update -y && pkg install -y git && rm -rf balatro-portrait-mobile && git clone https://github.com/ShaggyLorean/balatro-portrait-mobile.git && cd balatro-portrait-mobile && bash termux-build.sh --force
-```
-
-The helper installs what it needs, asks about Readabletro and CRT, then builds
-and signs the APK. It is copied to `/sdcard/Download/balatro-portrait-mobile.apk`.
-
-Full guide: [docs/TERMUX.md](docs/TERMUX.md).
 
 ## Zygisk module (experimental, root only)
 
@@ -208,7 +229,7 @@ game, tap **Copy to clipboard**, and paste the report into your issue — it
 carries the exact screen and safe-area numbers of your device.
 
 Path-specific problems are covered in their own guides:
-[Zygisk](zygisk/README.md) · [Termux](docs/TERMUX.md) · [iOS](docs/IOS.md) ·
+[Zygisk](zygisk/README.md) · [iOS](docs/IOS.md) ·
 [Modding](docs/MODDING.md) · [Save transfer](docs/SAVE_TRANSFER.md)
 
 ## Support
