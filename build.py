@@ -723,7 +723,7 @@ def _sign_apk(signer):
     """Sign the APK using uber-apk-signer. Checks for custom keystore or env variables."""
     ks_path = os.environ.get("KEYSTORE_PATH") or os.environ.get("KEYSTORE_FILE") or os.environ.get("KEYSTORE")
     if not ks_path:
-        for candidate in ("ks.keystore"):
+        for candidate in ("ks.keystore", "balatro.keystore", "release.keystore"):
             if os.path.exists(candidate):
                 ks_path = os.path.abspath(candidate)
                 break
