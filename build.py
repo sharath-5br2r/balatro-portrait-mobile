@@ -751,6 +751,7 @@ def _sign_apk(signer):
             "--ks", rel_ks,
             "--ksPass", ks_pass,
             "--ksAlias", ks_alias,
+            "-o", "balatro-portrait-mobile.apk"
         ]
         ks_key_pass = os.environ.get("KEYSTORE_KEY_PASSWORD") or ks_pass
         args.extend(["--ksKeyPass", ks_key_pass])
@@ -762,7 +763,7 @@ def _sign_apk(signer):
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
-        _java(signer, ["-a", "balatro.apk"])
+        _java(signer, ["-a", "balatro.apk" "-o", "balatro-portrait-mobile.apk" ])
         return "balatro-portrait-android.apk"
 
 
