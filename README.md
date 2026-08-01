@@ -119,18 +119,11 @@ The first run asks where Balatro is installed and extracts what it needs. The
 APK is written to:
 
 ```text
-balatro-mobile-maker/balatro-aligned-debugSigned.apk
+balatro-mobile-maker/balatro-portrait-android.apk
 ```
 
-when debug keystore is used or
 
-```text
-balatro-mobile-maker/balatro-aligned-signed.apk
-```
-
-when custom keystore is used.
-
-Install it using `adb install /path/to/balatro.apk` or `termux-open /path/to/balatro.apk`(Requires Termux API) or copying manually.
+Install it using `adb install balatro-mobile-maker/balatro-portrait-android.apk` or `termux-open balatro-mobile-maker/balatro-portrait-android.apk` (Requires Termux API) or copying manually.
 
 Common options:
 
