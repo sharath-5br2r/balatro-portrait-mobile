@@ -756,14 +756,14 @@ def _sign_apk(signer):
         args.extend(["--ksKeyPass", ks_key_pass])
 
         _java(signer, args)
-        return "balatro-aligned-signed.apk"
+        return "balatro-portrait-android.apk"
     else:
         if ks_path or ks_pass or ks_alias:
             print("  Warning: Custom keystore details incomplete. Requires keystore path, KEYSTORE_PASSWORD, and KEYSTORE_ALIAS.")
             print("  Falling back to debug certificate.")
         print("  Signing with debug certificate (uber-apk-signer) ...")
         _java(signer, ["-a", "balatro.apk"])
-        return "balatro-aligned-debugSigned.apk"
+        return "balatro-portrait-android.apk"
 
 
 def _apkeditor(jar, args):
@@ -1184,11 +1184,6 @@ def main():
         print()
         print(f"[3/{total}] Building APK ...")
         signed_apk = build_apk(profiler=BuildProfiler())
-
-        print()
-        print(f"  File at {signed_apk}, install on device:")
-        print(f"    adb install balatro-mobile-maker/{signed_apk}")
-        print(f" or termux-open balatro-mobile-maker/{signed_apk}")
     # ── Step 4 — iOS IPA (experimental) ────────────────────────────────────
     if build_ios:
         print()
